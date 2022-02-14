@@ -27,6 +27,7 @@ def enqueue_atomic_tasks(
     atomic_chunk_bounds = imanager.cg.meta.layer_chunk_bounds[2]
     chunk_coords = list(product(*[range(r) for r in atomic_chunk_bounds]))
     np.random.shuffle(chunk_coords)
+
     if imanager.config.TEST_RUN:
         x, y, z = np.array(atomic_chunk_bounds) // 2
         f = lambda r1, r2, r3: np.array(np.meshgrid(r1, r2, r3), dtype=int).T.reshape(
@@ -64,6 +65,8 @@ def enqueue_atomic_tasks(
                     job_id=chunk_id_str(2, chunk),
                 )
             )
+        q.enqueue_many(job_datas)
+
         q.enqueue_many(job_datas)
 
 
