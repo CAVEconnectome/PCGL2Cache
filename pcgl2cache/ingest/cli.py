@@ -198,10 +198,11 @@ def ingest_cache_v2(
     from .v2.jobs import enqueue_atomic_tasks
 
     if create:
+        from kvdbclient import BigTableClient
         from kvdbclient import get_default_client_info
         from kvdbclient import BigTableClient
 
-        client = BigTableClient(config=get_default_client_info())
+        client = BigTableClient(config=get_default_client_info().CONFIG)
         client.create_table(cache_id)
 
     # example format Jun 1 2005 1:33PM
