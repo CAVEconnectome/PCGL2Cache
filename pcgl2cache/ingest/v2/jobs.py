@@ -105,7 +105,7 @@ def _ingest_chunk(
         mip=cg.meta.cv.mip,
     )
 
-    chunk_coord = np.array(chunk_coord, dtype=np.int)
+    chunk_coord = np.array(chunk_coord, dtype=int)
     r = run_l2cache(
         cv,
         cg=cg,

@@ -27,7 +27,7 @@ def enqueue_atomic_tasks(
     imanager.redis.flushdb()
     bbox = np.array(imanager.cg.cv.bounds.to_list())
     dataset_size = bbox[3:] - bbox[:3]
-    atomic_chunk_bounds = np.ceil(dataset_size / imanager.cg.chunk_size).astype(np.int)
+    atomic_chunk_bounds = np.ceil(dataset_size / imanager.cg.chunk_size).astype(int)
     chunk_coords = list(product(*[range(r) for r in atomic_chunk_bounds]))
     np.random.shuffle(chunk_coords)
 
@@ -93,7 +93,7 @@ def _ingest_chunk(
         mip=imanager.cg.cv.mip,
     )
 
-    chunk_coord = np.array(list(chunk_coord), dtype=np.int)
+    chunk_coord = np.array(list(chunk_coord), dtype=int)
     r = run_l2cache(cv, imanager.cg, chunk_coord, timestamp)
     print(f"L2ID count: {len(r.get('l2id', []))}")
     write_to_db(BigTableClient(imanager.cache_id), r)
