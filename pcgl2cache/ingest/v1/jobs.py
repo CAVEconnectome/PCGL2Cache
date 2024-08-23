@@ -43,11 +43,11 @@ def enqueue_atomic_tasks(
     chunked_jobs = chunked(chunk_coords, 1000)
 
     for batch in chunked_jobs:
-        q = imanager.get_task_queue(imanager.config.CLUSTER.L2CACHE_Q_NAME)
+        q = imanager.get_task_queue(imanager.config.CLUSTER.QUEUE_NAME)
         # for optimal use of redis memory wait if queue limit is reached
-        if len(q) > imanager.config.CLUSTER.L2CACHE_Q_LIMIT:
-            print(f"Sleeping {imanager.config.CLUSTER.L2CACHE_Q_INTERVAL}s...")
-            sleep(imanager.config.CLUSTER.L2CACHE_Q_INTERVAL)
+        if len(q) > imanager.config.CLUSTER.QUEUE_SIZE:
+            print(f"Sleeping {imanager.config.CLUSTER.QUEUE_INTERVAL}s...")
+            sleep(imanager.config.CLUSTER.QUEUE_INTERVAL)
 
         job_datas = []
         for chunk in batch:

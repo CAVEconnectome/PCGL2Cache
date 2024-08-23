@@ -1,6 +1,4 @@
-from itertools import product
 from datetime import datetime
-from typing import Tuple
 from typing import Sequence
 from typing import Optional
 from os import environ
@@ -18,7 +16,7 @@ def _post_task_completion(imanager: IngestionManager, layer: int, coords: np.nda
     return
 
 
-def randomize_grid_points(X: int, Y: int, Z: int) -> Tuple[int, int, int]:
+def randomize_grid_points(X: int, Y: int, Z: int):
     indices = np.arange(X * Y * Z)
     np.random.shuffle(indices)
     for index in indices:
@@ -43,15 +41,15 @@ def enqueue_atomic_tasks(
         print(f"Test jobs count: {len(chunk_coords)}")
 
     print(f"Total jobs count: {imanager.cg.meta.layer_chunk_counts[0]}")
-    batch_size = int(environ.get("L2JOB_BATCH_SIZE", 1000))
+    batch_size = int(environ.get("L2JOB_BATCH_SIZE", 10000))
 
     job_datas = []
     for chunk_coord in chunk_coords:
-        q = imanager.get_task_queue(imanager.config.CLUSTER.L2CACHE_Q_NAME)
+        q = imanager.get_task_queue(imanager.config.CLUSTER.QUEUE_NAME)
         # buffer for optimal use of redis memory
-        if len(q) > imanager.config.CLUSTER.L2CACHE_Q_LIMIT:
-            print(f"Sleeping {imanager.config.CLUSTER.L2CACHE_Q_INTERVAL}s...")
-            sleep(imanager.config.CLUSTER.L2CACHE_Q_INTERVAL)
+        if len(q) > imanager.config.CLUSTER.QUEUE_SIZE:
+            print(f"Sleeping {imanager.config.CLUSTER.QUEUE_INTERVAL}s...")
+            sleep(imanager.config.CLUSTER.QUEUE_INTERVAL)
 
         x, y, z = chunk_coord
         chunk_str = f"{x}_{y}_{z}"
@@ -76,10 +74,6 @@ def enqueue_atomic_tasks(
             q.enqueue_many(job_datas)
             job_datas = []
     q.enqueue_many(job_datas)
-
-        q.enqueue_many(job_datas)
-
-        q.enqueue_many(job_datas)
 
 
 def _ingest_chunk(
