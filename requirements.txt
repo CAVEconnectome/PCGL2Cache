@@ -1,3 +1,4 @@
+fastremap
 cloud-files
 cloud-volume
 redis
@@ -6,7 +7,6 @@ urllib3>=1.26.3
 requests>=2.25.0
 grpcio>=1.36.1
 certifi>=2020.12.5
-numpy<2
 pandas
 scikit-learn
 google-cloud-bigtable
@@ -17,7 +17,6 @@ multiwrapper
 middle-auth-client>=3.11.0
 python-json-logger
 zstandard
-fastremap
 edt
 pyyaml
 cachetools
