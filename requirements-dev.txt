@@ -2,4 +2,3 @@ pylint
 black
 pyopenssl
 jupyter
-memory-profiler

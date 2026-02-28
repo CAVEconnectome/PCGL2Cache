@@ -1,7 +1,7 @@
 import numpy as np
 from kvdbclient.serializers import NumPyArray
 from kvdbclient.serializers import NumPyValue
-from kvdbclient.bigtable.attributes import Attribute
+from kvdbclient.attributes import _Attribute as Attribute
 
 UINT64 = np.dtype("uint64").newbyteorder("L")
 UINT32 = np.dtype("uint32").newbyteorder("L")

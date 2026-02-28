@@ -5,6 +5,7 @@ cli for running ingest
 import click
 from flask.cli import AppGroup
 
+import pcgl2cache
 from .manager import IngestionManager
 from .redis import get_redis_connection
 
@@ -43,8 +44,9 @@ def ingest_cache(
         from kvdbclient import BigTableClient
         from kvdbclient import get_default_client_info
 
-        client = BigTableClient(config=get_default_client_info().CONFIG)
-        client.create_table(cache_id)
+        meta = {"graph_id": graph_id, "cv_path": cv_path, "timestamp": timestamp}
+        client = BigTableClient(cache_id, config=get_default_client_info().CONFIG)
+        client.create_table(meta=meta, version=pcgl2cache.__version__)
 
     # example format 2018-06-29 08:15:27
     timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").replace(
@@ -86,8 +88,9 @@ def ingest_cache_v2(
         from kvdbclient import BigTableClient
         from kvdbclient import get_default_client_info
 
-        client = BigTableClient(config=get_default_client_info().CONFIG)
-        client.create_table(cache_id)
+        meta = {"graph_id": graph_id, "cv_path": cv_path, "timestamp": timestamp}
+        client = BigTableClient(cache_id, config=get_default_client_info().CONFIG)
+        client.create_table(meta=meta, version=pcgl2cache.__version__)
 
     # example format 2022-06-29 08:15:27
     timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").replace(

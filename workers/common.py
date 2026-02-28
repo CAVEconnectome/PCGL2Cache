@@ -3,8 +3,7 @@ def calculate_features(l2ids, l2cache_id, cv_path):
     import numpy as np
     from cloudvolume import CloudVolume
     from kvdbclient import BigTableClient, get_default_client_info
-    from kvdbclient.base import Entry
-    from kvdbclient.base import EntryKey
+    from kvdbclient.base import serialize_uint64
     from pcgl2cache.core.attributes import SIZE_NM3
     from pcgl2cache.core.features import run_l2cache
     from pcgl2cache.core.features import write_to_db
@@ -17,7 +16,7 @@ def calculate_features(l2ids, l2cache_id, cv_path):
             continue
         result = run_l2cache(cv, l2id=_id)
         if not result:
-            entry = Entry(EntryKey(_id), {SIZE_NM3: np.uint64(0)})
-            client.write_entries([entry])
+            row = client.mutate_row(serialize_uint64(_id), {SIZE_NM3: np.uint64(0)})
+            client.write([row])
         write_to_db(client, result)
         gc.collect()

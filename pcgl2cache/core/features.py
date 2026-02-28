@@ -6,6 +6,7 @@ import fastremap
 from edt import edt
 from sklearn import decomposition
 from kvdbclient import BigTableClient
+from kvdbclient.base import serialize_uint64
 from cloudvolume import CloudVolume
 
 from . import attributes
@@ -314,10 +315,7 @@ def run_l2cache(
 
 
 def write_to_db(client: BigTableClient, result_d: dict) -> None:
-    from kvdbclient.base import Entry
-    from kvdbclient.base import EntryKey
-
-    entries = []
+    rows = []
     for tup in zip(*result_d.values()):
         (
             l2id,
@@ -340,5 +338,5 @@ def write_to_db(client: BigTableClient, result_d: dict) -> None:
             attributes.PCA: pca_comp,
             attributes.PCA_VAL: pca_vals,
         }
-        entries.append(Entry(EntryKey(l2id), val_d))
-    client.write_entries(entries)
+        rows.append(client.mutate_row(serialize_uint64(l2id), val_d))
+    client.write(rows)

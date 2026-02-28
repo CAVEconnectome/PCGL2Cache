@@ -8,7 +8,6 @@ RUN mkdir -p /home/nginx/.cloudvolume/secrets && chown -R nginx /home/nginx && u
 
 COPY requirements.txt .
 RUN pip install --upgrade --no-cache-dir -r requirements.txt \
-    && pip install --upgrade git+https://github.com/CAVEconnectome/PyChunkedGraph.git@main \
-    && pip install --upgrade git+https://github.com/seung-lab/KVDbClient.git@main
+    && pip install --upgrade git+https://github.com/CAVEconnectome/PyChunkedGraph.git@main
 
 COPY . /app

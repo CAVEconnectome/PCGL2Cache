@@ -7,7 +7,7 @@ steps:
     timeout: 600s
     args:
       - build
-      - "--tag=gcr.io/neuromancer-seung-import/pcgl2cache:worker_pcgv1_$TAG_NAME"
+      - "--tag=gcr.io/$PROJECT_ID/pcgl2cache:worker_pcgv1_$TAG_NAME"
       - "--file=./ingest.v1.Dockerfile"
       - .
   - name: "gcr.io/cloud-builders/docker"
@@ -23,7 +23,7 @@ steps:
     args: ["-c", "docker push $$USERNAME/pcgl2cache:worker_pcgv1_$TAG_NAME"]
     secretEnv: ["USERNAME"]
 images:
-  - "gcr.io/neuromancer-seung-import/pcgl2cache:worker_pcgv1_$TAG_NAME"
+  - "gcr.io/$PROJECT_ID/pcgl2cache:worker_pcgv1_$TAG_NAME"
 availableSecrets:
   secretManager:
     - versionName: projects/$PROJECT_ID/secrets/docker-password/versions/1
