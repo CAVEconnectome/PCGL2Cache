@@ -2,12 +2,24 @@
 cli for running ingest
 """
 
+from datetime import datetime
+from datetime import timezone
+
 import click
+import numpy as np
+from cloudvolume import CloudVolume
 from flask.cli import AppGroup
+from kvdbclient import BigTableClient
+from kvdbclient import get_default_client_info
 
 import pcgl2cache
-from .manager import IngestionManager
+from . import IngestConfig
+from . import ClusterIngestConfig
+from .jobs import enqueue_atomic_tasks
+from .jobs import _atomic_chunk_bounds
+from .manager import IngestManager
 from .redis import get_redis_connection
+from .redis import keys as r_keys
 
 ingest_cli = AppGroup("ingest")
 
@@ -19,7 +31,7 @@ def flush_redis():
     redis.flushdb()
 
 
-@ingest_cli.command("v1")
+@ingest_cli.command("ingest")
 @click.argument("cache_id", type=str)
 @click.argument("graph_id", type=str)
 @click.argument("cv_path", type=str)
@@ -29,78 +41,29 @@ def flush_redis():
     "--test", is_flag=True, help="Queues 8 chunks at the center of the dataset."
 )
 def ingest_cache(
-    cache_id: str, graph_id: str, cv_path: str, timestamp: str, create: bool, test: bool
+    cache_id: str,
+    graph_id: str,
+    cv_path: str,
+    timestamp: str,
+    create: bool,
+    test: bool,
 ):
-    """
-    Main ingest command for old pychunkedgraph format.
-    """
-    from datetime import datetime
-    from datetime import timezone
-    from . import IngestConfig
-    from . import ClusterIngestConfig
-    from .v1.jobs import enqueue_atomic_tasks
-
+    """Main ingest command. Works against any pcg version (kvdbclient
+    auto-detects layer count from the graph's bigtable meta)."""
     if create:
-        from kvdbclient import BigTableClient
-        from kvdbclient import get_default_client_info
-
         meta = {"graph_id": graph_id, "cv_path": cv_path, "timestamp": timestamp}
         client = BigTableClient(cache_id, config=get_default_client_info().CONFIG)
         client.create_table(meta=meta, version=pcgl2cache.__version__)
 
-    # example format 2018-06-29 08:15:27
     timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").replace(
         tzinfo=timezone.utc
     )
     enqueue_atomic_tasks(
-        IngestionManager(
+        IngestManager(
             IngestConfig(CLUSTER=ClusterIngestConfig(), TEST_RUN=test),
             cache_id,
             graph_id,
-        ),
-        cv_path,
-        timestamp,
-    )
-
-
-@ingest_cli.command("v2")
-@click.argument("cache_id", type=str)
-@click.argument("graph_id", type=str)
-@click.argument("cv_path", type=str)
-@click.argument("timestamp", type=str)
-@click.option("--create", is_flag=True, help="Creates a bigtable named CACHE_ID.")
-@click.option(
-    "--test", is_flag=True, help="Queues 8 chunks at the center of the dataset."
-)
-def ingest_cache_v2(
-    cache_id: str, graph_id: str, cv_path: str, timestamp: str, create: bool, test: bool
-):
-    """
-    Main ingest command for new pychunkedgraph format.
-    """
-    from datetime import datetime
-    from datetime import timezone
-    from . import IngestConfig
-    from . import ClusterIngestConfig
-    from .v2.jobs import enqueue_atomic_tasks
-
-    if create:
-        from kvdbclient import BigTableClient
-        from kvdbclient import get_default_client_info
-
-        meta = {"graph_id": graph_id, "cv_path": cv_path, "timestamp": timestamp}
-        client = BigTableClient(cache_id, config=get_default_client_info().CONFIG)
-        client.create_table(meta=meta, version=pcgl2cache.__version__)
-
-    # example format 2022-06-29 08:15:27
-    timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").replace(
-        tzinfo=timezone.utc
-    )
-    enqueue_atomic_tasks(
-        IngestionManager(
-            IngestConfig(CLUSTER=ClusterIngestConfig(), TEST_RUN=test),
-            cache_id,
-            graph_id,
+            cv_path,
         ),
         cv_path,
         timestamp,
@@ -109,14 +72,11 @@ def ingest_cache_v2(
 
 @ingest_cli.command("status")
 def ingest_status():
-    """
-    Print progress completed/total.
-    """
-    from .redis import keys as r_keys
-
+    """Print progress completed/total."""
     redis = get_redis_connection()
-    imanager = IngestionManager.from_pickle(redis.get(r_keys.INGESTION_MANAGER))
-    l2chunk_count = imanager.cg.meta.layer_chunk_counts[0]
+    imanager = IngestManager.from_pickle(redis.get(r_keys.INGESTION_MANAGER))
+    cv = CloudVolume(imanager.cv_path)
+    l2chunk_count = int(np.prod(_atomic_chunk_bounds(cv)))
     print(f"{redis.scard('2c')} / {l2chunk_count}")
 
 

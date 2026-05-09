@@ -1,19 +1,25 @@
 from datetime import datetime
+from time import sleep
 from typing import Sequence
 from typing import Optional
 from os import environ
 
 import numpy as np
+from cloudvolume import CloudVolume
+from rq import Queue as RQueue
+from kvdbclient import BigTableClient
+from kvdbclient import get_default_client_info
 
-from ..utils import chunk_id_str
-from ..manager import IngestionManager
+from .utils import chunk_id_str
+from .manager import IngestManager
+from ..core.features import run_l2cache
+from ..core.features import write_to_db
 
 
-def _post_task_completion(imanager: IngestionManager, layer: int, coords: np.ndarray):
+def _post_task_completion(imanager: IngestManager, layer: int, coords: np.ndarray):
     chunk_str = "_".join(map(str, coords))
     # remove from queued hash and put in completed hash
     imanager.redis.sadd(f"{layer}c", chunk_str)
-    return
 
 
 def randomize_grid_points(X: int, Y: int, Z: int):
@@ -23,13 +29,23 @@ def randomize_grid_points(X: int, Y: int, Z: int):
         yield np.unravel_index(index, (X, Y, Z))
 
 
-def enqueue_atomic_tasks(
-    imanager: IngestionManager, cv_path: str, timestamp: Optional[datetime] = None
-):
-    from time import sleep
-    from rq import Queue as RQueue
+def _atomic_chunk_bounds(cv: CloudVolume) -> np.ndarray:
+    """Number of atomic (layer-2) chunks in each XYZ dimension.
 
-    atomic_chunk_bounds = imanager.cg.meta.layer_chunk_bounds[2]
+    Algebraically equivalent to PCG's `ChunkedGraphMeta.layer_chunk_bounds[2]`
+    (`np.ceil(voxel_counts / chunk_size).astype(int)`); the watershed CV
+    bounds and graph chunk size are exposed by graphene-CV's `/info`.
+    """
+    bbox = np.array(cv.bounds.to_list())
+    voxel_counts = bbox[3:] - bbox[:3]
+    return np.ceil(voxel_counts / cv.graph_chunk_size).astype(int)
+
+
+def enqueue_atomic_tasks(
+    imanager: IngestManager, cv_path: str, timestamp: Optional[datetime] = None
+):
+    cv = CloudVolume(cv_path)
+    atomic_chunk_bounds = _atomic_chunk_bounds(cv)
     chunk_coords = randomize_grid_points(*atomic_chunk_bounds)
 
     if imanager.config.TEST_RUN:
@@ -40,7 +56,7 @@ def enqueue_atomic_tasks(
         chunk_coords = f((x, x + 1), (y, y + 1), (z, z + 1))
         print(f"Test jobs count: {len(chunk_coords)}")
 
-    print(f"Total jobs count: {imanager.cg.meta.layer_chunk_counts[0]}")
+    print(f"Total jobs count: {int(np.prod(atomic_chunk_bounds))}")
     batch_size = int(environ.get("L2JOB_BATCH_SIZE", 10000))
 
     job_datas = []
@@ -82,27 +98,13 @@ def _ingest_chunk(
     chunk_coord: Sequence[int],
     timestamp: datetime,
 ):
-    from cloudvolume import CloudVolume
-    from pychunkedgraph.graph import ChunkedGraph
-    from kvdbclient import BigTableClient
-    from kvdbclient import get_default_client_info
-    from ...core.features import run_l2cache
-    from ...core.features import write_to_db
-
-    imanager = IngestionManager.from_pickle(im_info)
-    cg = ChunkedGraph(graph_id=imanager.graph_id)
-    cv = CloudVolume(
-        cv_path,
-        bounded=False,
-        fill_missing=True,
-        progress=False,
-        mip=cg.meta.cv.mip,
-    )
+    imanager = IngestManager.from_pickle(im_info)
+    cv = CloudVolume(cv_path, bounded=False, fill_missing=True, progress=False)
 
     chunk_coord = np.array(chunk_coord, dtype=int)
     r = run_l2cache(
         cv,
-        cg=cg,
+        graph_client=imanager.graph_client,
         chunk_coord=chunk_coord,
         timestamp=timestamp,
     )
