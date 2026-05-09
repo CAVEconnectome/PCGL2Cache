@@ -1,4 +1,5 @@
 import logging
+import warnings
 from collections import Counter
 
 import numpy as np
@@ -6,16 +7,36 @@ import fastremap
 from edt import edt
 from sklearn import decomposition
 from kvdbclient import BigTableClient
+from kvdbclient.attributes import Hierarchy
 from kvdbclient.base import serialize_uint64
 from cloudvolume import CloudVolume
 
 from . import attributes
+from ..utils import get_chunk_coordinates
+
+
+def _get_children(client: BigTableClient, node_id, time_stamp=None) -> np.ndarray:
+    """Read the supervoxel children of an L2 node directly from BigTable.
+
+    Companion to RootExtension's `get_parent`/`get_parents`; not yet
+    upstreamed to kvdbclient. The children list is stored as a single
+    cell on the node's row under `Hierarchy.Child`.
+    """
+    cells = client.read_node(
+        node_id,
+        properties=Hierarchy.Child,
+        end_time=time_stamp,
+        end_time_inclusive=True,
+    )
+    if not cells:
+        return np.array([], dtype=np.uint64)
+    return cells[0].value
 
 
 class L2ChunkVolume:
-    def __init__(self, cv, cg, coordinates, timestamp):
+    def __init__(self, cv, graph_client, coordinates, timestamp):
         self._cv = cv
-        self._cg = cg
+        self._graph_client = graph_client
         self._coordinates = coordinates
         self._chunk_size = self.cv.graph_chunk_size
         self._coordinates_sv = coordinates * self.chunk_size
@@ -23,8 +44,8 @@ class L2ChunkVolume:
         self._vol_bounds = self._cv.bounds
 
     @property
-    def cg(self):
-        return self._cg
+    def graph_client(self):
+        return self._graph_client
 
     @property
     def cv(self) -> CloudVolume:
@@ -75,8 +96,8 @@ class L2ChunkVolume:
         if l2id is not None:
             # remap given l2id from get_roots to given l2id
             remapping = {}
-            if self.cg is not None:
-                children = self.cg.get_children(l2id)
+            if self.graph_client is not None:
+                children = _get_children(self.graph_client, l2id)
             else:
                 children = self.cv.get_leaves(l2id, self._vol_bounds, 0)
             try:
@@ -103,11 +124,14 @@ class L2ChunkVolume:
 
 
 def _get_l2_ids(l2vol: L2ChunkVolume, svids: np.array) -> np.array:
-    if l2vol.cg:
-        l2ids = l2vol.cg.get_roots(
-            svids, stop_layer=2, fail_to_zero=True, time_stamp=l2vol.timestamp
+    if l2vol.graph_client is not None:
+        l2ids = l2vol.graph_client.root_ext.get_roots(
+            node_ids=svids,
+            stop_layer=2,
+            fail_to_zero=True,
+            time_stamp=l2vol.timestamp,
         )
-        layers = l2vol.cg.get_chunk_layers(l2ids)
+        layers = l2vol.graph_client.root_ext.get_chunk_layers(l2ids)
         sv_mask = layers == 1
         l2ids[sv_mask] = 0
     else:
@@ -169,8 +193,6 @@ def process_edt_stack(vol_l2, l2_contiguous_d, edt_stack, l2id=None):
 
 
 def dist_weight(resolution, coords):
-    import warnings
-
     mean_coord = np.mean(coords, axis=0)
     dists = np.linalg.norm((coords - mean_coord) * resolution, axis=1)
     with warnings.catch_warnings():
@@ -298,16 +320,20 @@ def calculate_features(vol_l2, l2_cont_d, resolution, l2id=None):
 
 
 def run_l2cache(
-    cv: CloudVolume, cg=None, chunk_coord=None, timestamp=None, l2id=None
+    cv: CloudVolume,
+    graph_client=None,
+    chunk_coord=None,
+    timestamp=None,
+    l2id=None,
 ) -> dict:
     if chunk_coord is None:
         assert l2id is not None
-        from ..utils import get_chunk_coordinates
-
         _coords = get_chunk_coordinates(cv, [l2id])
         chunk_coord = _coords[0]
 
-    l2chunk = L2ChunkVolume(cv, cg, np.array(list(chunk_coord), dtype=int), timestamp)
+    l2chunk = L2ChunkVolume(
+        cv, graph_client, np.array(list(chunk_coord), dtype=int), timestamp
+    )
     vol_l2, l2_contiguous_d = l2chunk.get_remapped_segmentation(l2id)
     if np.sum(np.array(list(l2_contiguous_d.values())) != 0) == 0:
         return {}

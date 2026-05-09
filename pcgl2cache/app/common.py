@@ -8,6 +8,7 @@ from functools import lru_cache
 
 import numpy as np
 from cloudvolume import compression
+from messagingclient import MessagingClient
 
 from flask import request
 from flask import jsonify
@@ -15,6 +16,10 @@ from flask import Blueprint
 from flask import current_app
 from flask import make_response
 
+from .. import __version__
+from ..utils import get_chunk_coordinates
+from .utils import get_l2cache_client
+from .utils import get_l2cache_cv
 from .utils import get_registered_attributes
 from .utils import toboolean
 
@@ -32,8 +37,6 @@ bp = Blueprint(
 @bp.route("/")
 @bp.route("/index")
 def index():
-    from .. import __version__
-
     return f"PCGL2Cache v{__version__}"
 
 
@@ -142,14 +145,12 @@ def handle_attr_metadata():
 
 
 def handle_attributes(graph_id: str, is_binary=False):
-    from ..app.utils import get_l2cache_client
-
     if is_binary:
         l2ids = np.frombuffer(request.data, np.uint64)
     else:
         l2ids = np.array(json.loads(request.data)["l2_ids"], dtype=np.uint64)
     l2ids = np.unique(l2ids)
-    
+
     attributes = None
     attribute_names = request.args.get("attribute_names")
     if attribute_names is not None:
@@ -161,7 +162,7 @@ def handle_attributes(graph_id: str, is_binary=False):
             attributes.append(_attributes[name])
 
     cache_client = get_l2cache_client(graph_id)
-    entries = cache_client.read_entries(keys=l2ids, attributes=attributes)
+    entries = cache_client.read_nodes(node_ids=l2ids, properties=attributes)
     result = {}
     missing_l2ids = []
     for l2id in l2ids:
@@ -194,8 +195,6 @@ def handle_attributes(graph_id: str, is_binary=False):
 
 @lru_cache(maxsize=128)
 def _sv_volume(graph_id):
-    from .utils import get_l2cache_cv
-
     cv = get_l2cache_cv(graph_id)
     return np.array(cv.resolution).prod()
 
@@ -215,9 +214,6 @@ def _rescale_volume(graph_id: str, l2ids: Iterable, result: dict):
 
 
 def _add_offset_to_coords(graph_id: str, l2ids: Iterable, result: dict):
-    from .utils import get_l2cache_cv
-    from ..utils import get_chunk_coordinates
-
     cv = get_l2cache_cv(graph_id)
     start_offset = np.array(cv.bounds.to_list()[:3])
     coords = get_chunk_coordinates(cv, l2ids)
@@ -240,9 +236,6 @@ def _add_offset_to_coords(graph_id: str, l2ids: Iterable, result: dict):
 
 
 def _trigger_cache_update(l2ids, graph_id: str, l2_cache_id: str) -> None:
-    import numpy as np
-    from messagingclient import MessagingClient
-
     payload = np.array(l2ids, dtype=np.uint64).tobytes()
     attributes = {
         "table_id": graph_id,

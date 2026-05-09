@@ -1,18 +1,22 @@
-from typing import Iterable
 from os import environ
+from typing import Iterable
 
 import numpy as np
+import yaml
 from cloudvolume import CloudVolume
+from kvdbclient import BigTableClient
+from kvdbclient import get_default_client_info
 
 
-def get_chunkedgraph(graph_id):
-    if environ.get("CHUNKEDGRAPH_VERSION", "1") == "1":
-        from pychunkedgraph.backend.chunkedgraph import ChunkedGraph
+def get_graph_client(graph_id: str) -> BigTableClient:
+    """Open the kvdbclient BigTable client for a chunked-graph table.
 
-        return ChunkedGraph(graph_id)
-    from pychunkedgraph.graph import ChunkedGraph
-
-    return ChunkedGraph(graph_id=graph_id)
+    The same client is used for v1 and v2 schemas; `RootExtension`
+    (`client.root_ext`) auto-detects the layer-count source via its
+    `_read_layer_count` cases (typed meta, surrogate-meta, or pcgv1
+    `b'params'` row).
+    """
+    return BigTableClient(graph_id, config=get_default_client_info().CONFIG)
 
 
 def read_l2cache_config() -> dict:
@@ -27,8 +31,6 @@ def read_l2cache_config() -> dict:
       l2cache_id: "l2cache_minnie3_v1_v1"
     ```
     """
-    import yaml
-
     try:
         yml_path = environ["GRAPH_L2CACHE_CONFIG_PATH"]
     except KeyError:
