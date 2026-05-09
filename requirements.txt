@@ -9,15 +9,13 @@ grpcio>=1.36.1
 certifi>=2020.12.5
 pandas
 scikit-learn
-google-cloud-bigtable
 google-cloud-datastore>=1.8
 flask
 flask_cors
-multiwrapper
 middle-auth-client>=3.11.0
 python-json-logger
 zstandard
-kvdbclient>=0.3.1
+kvdbclient>=0.7.0
 edt
 pyyaml
 cachetools
