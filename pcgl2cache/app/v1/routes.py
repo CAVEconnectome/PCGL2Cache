@@ -1,8 +1,10 @@
+import gc
+from functools import wraps
+
 from flask import request, current_app
 from flask import Blueprint
 from middle_auth_client import auth_required
 from middle_auth_client import auth_requires_permission
-from functools import wraps
 
 from ...app import common
 from ..utils import toboolean
@@ -87,8 +89,6 @@ def attr_metadata():
 @auth_requires_permission("view")
 @remap_public
 def attributes(table_id):
-    import gc
-
     int64_as_str = request.args.get("int64_as_str", default=False, type=toboolean)
     result = jsonify_with_kwargs(
         common.handle_attributes(table_id), int64_as_str=int64_as_str

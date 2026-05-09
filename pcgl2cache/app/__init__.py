@@ -13,6 +13,10 @@ from flask_cors import CORS
 from rq import Queue
 
 from . import config
+from .common import bp as l2cache_bp
+from .v1.routes import bp as l2cache_api_v1
+from ..ingest.cli import init_ingest_cmds
+from ..ingest.rq_cli import init_rq_cmds
 
 
 class CustomJsonEncoder(json.JSONEncoder):
@@ -42,9 +46,6 @@ def get_instance_folder_path():
 
 
 def create_app(test_config=None):
-    from .common import bp as l2cache_bp
-    from .v1.routes import bp as l2cache_api_v1
-
     app = Flask(__name__,instance_path=get_instance_folder_path(), instance_relative_config=True)
     app.json_encoder = CustomJsonEncoder
     CORS(app, expose_headers="WWW-Authenticate")
@@ -78,8 +79,5 @@ def configure_app(app):
         app.redis = redis.Redis.from_url(app.config["REDIS_URL"])
         app.test_q = Queue("test", connection=app.redis)
         with app.app_context():
-            from ..ingest.rq_cli import init_rq_cmds
-            from ..ingest.cli import init_ingest_cmds
-
             init_rq_cmds(app)
             init_ingest_cmds(app)

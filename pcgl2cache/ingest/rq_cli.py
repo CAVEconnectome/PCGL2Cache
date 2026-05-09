@@ -11,6 +11,8 @@ from rq import Worker
 from rq.worker import WorkerStatus
 from rq.job import Job
 from rq.registry import FailedJobRegistry
+from rq.registry import StartedJobRegistry
+from rq.exceptions import InvalidJobOperationError
 from rq.exceptions import NoSuchJobError
 from flask import current_app
 from flask.cli import AppGroup
@@ -86,8 +88,6 @@ def enqueue(queue, job_ids):
 @click.argument("job_ids", nargs=-1)
 def requeue(queue, all, job_ids):
     """Requeue failed jobs."""
-    from rq.exceptions import InvalidJobOperationError
-
     failed_job_registry = FailedJobRegistry(queue, connection=connection)
     if all:
         job_ids = failed_job_registry.get_job_ids()
@@ -118,8 +118,6 @@ def clean_start_registry(queue):
     Sometimes started jobs are not moved to failed registry (network issues)
     This command takes the jobs off the started registry and reueues them
     """
-    from rq.registry import StartedJobRegistry
-
     registry = StartedJobRegistry(name=queue, connection=connection)
     cleaned_jobs = registry.cleanup()
     print(f"Requeued {len(cleaned_jobs)} jobs from the started job registry.")
