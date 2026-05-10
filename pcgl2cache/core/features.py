@@ -162,7 +162,7 @@ def get_edt_stack(vol_l2, resolution):
     # float data for the edt would lead to overflows, so we first
     # convert to uints.
     shape = np.array(vol_l2.shape)
-    size = np.product(shape)
+    size = np.prod(shape)
     stack = ((vol_dt.astype(np.uint64).flatten()) << 32) + np.arange(
         size, dtype=np.uint64
     )
@@ -240,7 +240,7 @@ def calculate_features(vol_l2, l2_cont_d, resolution, l2id=None):
         )
 
         # for consistency use biological size 0.01 um^3 for filtering small objects
-        if len(idxs) * np.product(resolution) / 1e9 < 0.01:
+        if len(idxs) * np.prod(resolution) / 1e9 < 0.01:
             l2_pca_comps.append(np.zeros(shape=(0, 3), dtype=attributes.PCA.basetype))
             l2_pca_vals.append(np.zeros(shape=(0,), dtype=attributes.PCA_VAL.basetype))
             continue
@@ -293,9 +293,9 @@ def calculate_features(vol_l2, l2_cont_d, resolution, l2id=None):
         return_counts=True,
     )
 
-    x_area = np.product(resolution[[1, 2]])
-    y_area = np.product(resolution[[0, 2]])
-    z_area = np.product(resolution[[0, 1]])
+    x_area = np.prod(resolution[[1, 2]])
+    y_area = np.prod(resolution[[0, 2]])
+    z_area = np.prod(resolution[[0, 1]])
 
     x_dict = Counter(dict(zip(u_x, c_x * x_area)))
     y_dict = Counter(dict(zip(u_y, c_y * y_area)))
