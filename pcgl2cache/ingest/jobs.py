@@ -14,6 +14,7 @@ from .utils import chunk_id_str
 from .manager import IngestManager
 from ..core.features import run_l2cache
 from ..core.features import write_to_db
+from ..utils import atomic_chunk_bounds
 
 
 def _post_task_completion(imanager: IngestManager, layer: int, coords: np.ndarray):
@@ -29,27 +30,15 @@ def randomize_grid_points(X: int, Y: int, Z: int):
         yield np.unravel_index(index, (X, Y, Z))
 
 
-def _atomic_chunk_bounds(cv: CloudVolume) -> np.ndarray:
-    """Number of atomic (layer-2) chunks in each XYZ dimension.
-
-    Algebraically equivalent to PCG's `ChunkedGraphMeta.layer_chunk_bounds[2]`
-    (`np.ceil(voxel_counts / chunk_size).astype(int)`); the watershed CV
-    bounds and graph chunk size are exposed by graphene-CV's `/info`.
-    """
-    bbox = np.array(cv.bounds.to_list())
-    voxel_counts = bbox[3:] - bbox[:3]
-    return np.ceil(voxel_counts / cv.graph_chunk_size).astype(int)
-
-
 def enqueue_atomic_tasks(
     imanager: IngestManager, cv_path: str, timestamp: Optional[datetime] = None
 ):
     cv = CloudVolume(cv_path)
-    atomic_chunk_bounds = _atomic_chunk_bounds(cv)
-    chunk_coords = randomize_grid_points(*atomic_chunk_bounds)
+    bounds = atomic_chunk_bounds(cv)
+    chunk_coords = randomize_grid_points(*bounds)
 
     if imanager.config.TEST_RUN:
-        x, y, z = np.array(atomic_chunk_bounds) // 2
+        x, y, z = np.array(bounds) // 2
         f = lambda r1, r2, r3: np.array(np.meshgrid(r1, r2, r3), dtype=int).T.reshape(
             -1, 3
         )

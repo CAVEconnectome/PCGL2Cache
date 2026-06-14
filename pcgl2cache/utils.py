@@ -19,6 +19,18 @@ def get_graph_client(graph_id: str) -> BigTableClient:
     return BigTableClient(graph_id, config=get_default_client_info().CONFIG)
 
 
+def atomic_chunk_bounds(cv: CloudVolume) -> np.ndarray:
+    """Number of atomic (layer-2) chunks in each XYZ dimension.
+
+    Algebraically equivalent to PCG's `ChunkedGraphMeta.layer_chunk_bounds[2]`
+    (`np.ceil(voxel_counts / chunk_size).astype(int)`); the watershed CV
+    bounds and graph chunk size are exposed by graphene-CV's `/info`.
+    """
+    bbox = np.array(cv.bounds.to_list())
+    voxel_counts = bbox[3:] - bbox[:3]
+    return np.ceil(voxel_counts / cv.graph_chunk_size).astype(int)
+
+
 def read_l2cache_config() -> dict:
     """
     Example yaml file:

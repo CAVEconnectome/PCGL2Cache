@@ -16,8 +16,8 @@ import pcgl2cache
 from . import IngestConfig
 from . import ClusterIngestConfig
 from .jobs import enqueue_atomic_tasks
-from .jobs import _atomic_chunk_bounds
 from .manager import IngestManager
+from ..utils import atomic_chunk_bounds
 from .redis import get_redis_connection
 from .redis import keys as r_keys
 
@@ -76,7 +76,7 @@ def ingest_status():
     redis = get_redis_connection()
     imanager = IngestManager.from_pickle(redis.get(r_keys.INGESTION_MANAGER))
     cv = CloudVolume(imanager.cv_path)
-    l2chunk_count = int(np.prod(_atomic_chunk_bounds(cv)))
+    l2chunk_count = int(np.prod(atomic_chunk_bounds(cv)))
     print(f"{redis.scard('2c')} / {l2chunk_count}")
 
 
