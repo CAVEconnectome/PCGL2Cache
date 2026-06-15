@@ -1,6 +1,6 @@
 """Container entrypoint: ``python -m pcgl2cache.pipeline.l2cache``."""
 
-from pipeline.distribution import run_and_exit
+from cave_pipeline.distribution import run_and_exit
 
 from .worker import main
 

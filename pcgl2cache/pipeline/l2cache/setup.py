@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import requests
 from cloudvolume.secrets import cave_credentials
 from kvdbclient import BigTableClient, get_default_client_info
-from pipeline.distribution import run_and_exit
+from cave_pipeline.distribution import run_and_exit
 
 import pcgl2cache
 

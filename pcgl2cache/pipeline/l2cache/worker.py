@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import numpy as np
 from cloudvolume import CloudVolume
 from kvdbclient import BigTableClient, get_default_client_info
-from pipeline.distribution.harness import run
+from cave_pipeline.distribution.harness import run
 
 from ...core.features import run_l2cache, write_to_db
 from ...utils import atomic_chunk_bounds, get_graph_client

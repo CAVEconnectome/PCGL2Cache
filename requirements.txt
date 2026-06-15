@@ -12,7 +12,7 @@ flask_cors
 uwsgi
 middle-auth-client>=3.11.0
 kvdbclient>=0.7.0
-cave-pipeline[distribution]>=0.1.0
+cave-pipeline[distribution]>=0.0.2,<0.1
 edt
 pyyaml
 messagingclient
