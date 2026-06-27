@@ -126,6 +126,17 @@ DOCKER_BUILDKIT=1 docker build -t pcgl2cache:dev .
 The frontend, ingest CLI, and update workers all run from this image
 with role-specific entrypoints supplied by your deployment manifest.
 
+## Release
+
+Versioned like PyChunkedGraph: a committed `pcgl2cache/_version.py` literal, bumped by a one-click
+workflow — no manual edit or `bumpversion`.
+
+- **Release:** Actions → **publish release** → **Run workflow** → choose `part`
+  (`major`/`minor`/`patch`), or `gh workflow run release.yml -f part=patch`. It bumps `_version.py`,
+  commits, tags `vX.Y.Z`, and creates a GitHub Release; the existing Cloud Build trigger builds the
+  image from the tag.
+- **Preview:** `dry-run=true` prints the next version without committing or tagging.
+
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE).

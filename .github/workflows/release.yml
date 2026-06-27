@@ -1,0 +1,59 @@
+name: publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      part:
+        description: "Semver part to bump (major, minor, patch)"
+        type: choice
+        required: true
+        default: patch
+        options: [major, minor, patch]
+      dry-run:
+        description: "Dry run — compute the next version, do not commit/tag/push"
+        type: boolean
+        required: true
+        default: false
+
+jobs:
+  bump:
+    name: Bump version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure git for github-actions[bot]
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Bump version in pcgl2cache/_version.py
+        id: get-version
+        run: |
+          cur=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' pcgl2cache/_version.py)
+          IFS=. read -r major minor patch <<< "$cur"
+          case "${{ github.event.inputs.part }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          version="$major.$minor.$patch"
+          sed -i "s/^__version__ = .*/__version__ = \"$version\"/" pcgl2cache/_version.py
+          echo "VERSION=$version" >> $GITHUB_OUTPUT
+      - name: Commit the bump and push the tag
+        if: ${{ github.event.inputs.dry-run == 'false' }}
+        run: |
+          git add pcgl2cache/_version.py
+          git commit -m "release v${{ steps.get-version.outputs.VERSION }}"
+          git tag "v${{ steps.get-version.outputs.VERSION }}"
+          git push origin HEAD
+          git push origin "v${{ steps.get-version.outputs.VERSION }}"
+      - name: Create GitHub Release
+        if: ${{ github.event.inputs.dry-run == 'false' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get-version.outputs.VERSION }}
+          name: Release v${{ steps.get-version.outputs.VERSION }}
+          generate_release_notes: true
+      - name: Show version
+        run: echo "v${{ steps.get-version.outputs.VERSION }} (dry-run=${{ github.event.inputs.dry-run }})"

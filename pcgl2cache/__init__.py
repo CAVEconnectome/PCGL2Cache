@@ -1,3 +1,3 @@
-__version__ = "1.3.1"
+from ._version import __version__  # noqa: F401
 
 from .core import attributes
