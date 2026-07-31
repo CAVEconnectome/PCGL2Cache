@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG PYTHON_VERSION=3.14
+ARG PYTHON_VERSION=3.13
 FROM python:${PYTHON_VERSION}-slim
 
 ENV GIT_SSL_NO_VERIFY=1
