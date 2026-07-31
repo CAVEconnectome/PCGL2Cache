@@ -184,7 +184,7 @@ def handle_attributes(graph_id: str, is_binary=False):
     _add_offset_to_coords(graph_id, l2ids, result)
     _rescale_volume(graph_id, l2ids, result)
     update_cache = request.args.get("update_cache", default=True, type=toboolean)
-    if not update_cache or len(l2ids) == 0:
+    if not update_cache or len(missing_l2ids) == 0:
         return result
     try:
         _trigger_cache_update(missing_l2ids, graph_id, cache_client.table_id)
@@ -236,6 +236,8 @@ def _add_offset_to_coords(graph_id: str, l2ids: Iterable, result: dict):
 
 
 def _trigger_cache_update(l2ids, graph_id: str, l2_cache_id: str) -> None:
+    if len(l2ids) == 0:
+        return
     payload = np.array(l2ids, dtype=np.uint64).tobytes()
     attributes = {
         "table_id": graph_id,
