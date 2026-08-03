@@ -144,6 +144,12 @@ def handle_attr_metadata():
     }
 
 
+def _attribute_name(key) -> str:
+    """Column name, whether kvdbclient keys the row by Attribute or raw bytes."""
+    key = getattr(key, "key", key)
+    return key.decode() if isinstance(key, bytes) else str(key)
+
+
 def handle_attributes(graph_id: str, is_binary=False):
     if is_binary:
         l2ids = np.frombuffer(request.data, np.uint64)
@@ -171,13 +177,14 @@ def handle_attributes(graph_id: str, is_binary=False):
             result[int(l2id)] = {}
             for k, v in attrs.items():
                 val = v[0].value
+                name = _attribute_name(k)
                 try:
                     # if empty list skip from response
                     if len(val) > 0:
-                        result[int(l2id)][k.decode()] = val
+                        result[int(l2id)][name] = val
                 except TypeError:
                     # add all scalar values to response
-                    result[int(l2id)][k.decode()] = val
+                    result[int(l2id)][name] = val
         except KeyError:
             result[int(l2id)] = {}
             missing_l2ids.append(l2id)
