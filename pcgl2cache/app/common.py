@@ -87,7 +87,7 @@ def unhandled_exception(e):
     status_code = 500
     response_time = (time.time() - current_app.request_start_time) * 1000
     user_ip = str(request.remote_addr)
-    tb = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+    tb = traceback.format_exception(e)
     current_app.logger.error(
         {
             "message": str(e),
@@ -114,7 +114,7 @@ def unhandled_exception(e):
 def api_exception(e):
     response_time = (time.time() - current_app.request_start_time) * 1000
     user_ip = str(request.remote_addr)
-    tb = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+    tb = traceback.format_exception(e)
     current_app.logger.error(
         {
             "message": str(e),

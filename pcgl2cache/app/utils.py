@@ -29,14 +29,15 @@ def get_instance_folder_path():
 
 def jsonify_with_kwargs(data, as_response=True, **kwargs):
     kwargs.setdefault("separators", (",", ":"))
-    if current_app.config["JSONIFY_PRETTYPRINT_REGULAR"] or current_app.debug:
+    # JSONIFY_PRETTYPRINT_REGULAR and JSONIFY_MIMETYPE were removed in Flask 2.3
+    if current_app.json.compact == False or current_app.debug:
         kwargs["indent"] = 2
         kwargs["separators"] = (", ", ": ")
 
     resp = json.dumps(data, **kwargs)
     if as_response:
         return current_app.response_class(
-            resp + "\n", mimetype=current_app.config["JSONIFY_MIMETYPE"]
+            resp + "\n", mimetype=current_app.json.mimetype
         )
     else:
         return resp
