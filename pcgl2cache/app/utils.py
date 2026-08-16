@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 from typing import Iterable
 
 import numpy as np
@@ -10,8 +11,6 @@ from kvdbclient import BigTableClient
 from kvdbclient import get_default_client_info
 
 from ..core import attributes
-
-CACHE = {}
 
 
 class DoNothingCreds(Credentials):
@@ -43,13 +42,39 @@ def jsonify_with_kwargs(data, as_response=True, **kwargs):
         return resp
 
 
+@lru_cache(maxsize=32)
+def _l2cache_client(l2cache_id: str) -> BigTableClient:
+    """One BigTableClient per table, reused for the life of the worker.
+
+    Constructing this per request builds a fresh gRPC channel each time. The channels
+    are dropped immediately but the allocation churn sets the worker's heap high-water,
+    which glibc never returns: a worker reaches ~68 MB above its post-import baseline
+    within roughly 20 requests and then stays there. Long-lived clients are also what
+    gRPC is designed for -- it reconnects internally, so there is nothing to refresh.
+
+    Keyed on l2cache_id rather than graph_id so the cache stays correct if two graphs
+    resolve to the same table, or if config is rebuilt.
+    """
+    info = get_default_client_info()
+    return BigTableClient(l2cache_id, config=info.CONFIG)
+
+
+@lru_cache(maxsize=32)
+def _l2cache_cv(cv_path: str) -> CloudVolume:
+    """One CloudVolume per path, reused for the life of the worker.
+
+    Only metadata is read from it here (resolution, bounds, graph_chunk_size, meta),
+    never voxel data, so sharing one instance across requests is safe. Constructing it
+    per request re-parses the info document on every call.
+    """
+    return CloudVolume(cv_path)
+
+
 def get_l2cache_client(graph_id: str) -> BigTableClient:
     l2cache_config = current_app.config["L2CACHE_CONFIG"]
     assert graph_id in l2cache_config, f"Dataset {graph_id} does not have an L2 Cache."
 
-    l2cache_id = l2cache_config[graph_id]["l2cache_id"]
-    info = get_default_client_info()
-    return BigTableClient(l2cache_id, config=info.CONFIG)
+    return _l2cache_client(l2cache_config[graph_id]["l2cache_id"])
 
 
 def get_l2cache_cv(graph_id: str) -> CloudVolume:
@@ -58,8 +83,7 @@ def get_l2cache_cv(graph_id: str) -> CloudVolume:
         graph_id in l2cache_config
     ), f"Dataset {graph_id} does not have CV graphene path."
 
-    cv_path = l2cache_config[graph_id]["cv_path"]
-    return CloudVolume(cv_path)
+    return _l2cache_cv(l2cache_config[graph_id]["cv_path"])
 
 
 def toboolean(value):
