@@ -194,9 +194,20 @@ def handle_attributes(graph_id: str, is_binary=False):
     if not update_cache or len(missing_l2ids) == 0:
         return result
     try:
-        _trigger_cache_update(missing_l2ids, graph_id, cache_client.table_id)
+        # kvdbclient's Client stores the table id privately and exposes no public property,
+        # so `.table_id` raised AttributeError here while evaluating the argument -- before
+        # _trigger_cache_update was ever entered. Silently, because of the handler below: the
+        # endpoint still returned 200 with the missing ids simply absent, so callers saw
+        # incomplete data and no recompute was ever queued.
+        _trigger_cache_update(missing_l2ids, graph_id, cache_client._table_id)
     except Exception as e:
-        current_app.logger.error(str(e))
+        # exc_info so the next failure here shows a traceback. str(e) alone is what made an
+        # AttributeError read like an idle queue for days.
+        current_app.logger.error(
+            f"Failed to trigger l2cache update for {len(missing_l2ids)} l2 ids "
+            f"on {graph_id}: {e}",
+            exc_info=True,
+        )
     return result
 
 
