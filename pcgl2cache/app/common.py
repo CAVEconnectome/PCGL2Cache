@@ -87,7 +87,7 @@ def unhandled_exception(e):
     status_code = 500
     response_time = (time.time() - current_app.request_start_time) * 1000
     user_ip = str(request.remote_addr)
-    tb = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+    tb = traceback.format_exception(e)
     current_app.logger.error(
         {
             "message": str(e),
@@ -114,7 +114,7 @@ def unhandled_exception(e):
 def api_exception(e):
     response_time = (time.time() - current_app.request_start_time) * 1000
     user_ip = str(request.remote_addr)
-    tb = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+    tb = traceback.format_exception(e)
     current_app.logger.error(
         {
             "message": str(e),
@@ -144,6 +144,12 @@ def handle_attr_metadata():
     }
 
 
+def _attribute_name(key) -> str:
+    """Column name, whether kvdbclient keys the row by Attribute or raw bytes."""
+    key = getattr(key, "key", key)
+    return key.decode() if isinstance(key, bytes) else str(key)
+
+
 def handle_attributes(graph_id: str, is_binary=False):
     if is_binary:
         l2ids = np.frombuffer(request.data, np.uint64)
@@ -171,13 +177,14 @@ def handle_attributes(graph_id: str, is_binary=False):
             result[int(l2id)] = {}
             for k, v in attrs.items():
                 val = v[0].value
+                name = _attribute_name(k)
                 try:
                     # if empty list skip from response
                     if len(val) > 0:
-                        result[int(l2id)][k.decode()] = val
+                        result[int(l2id)][name] = val
                 except TypeError:
                     # add all scalar values to response
-                    result[int(l2id)][k.decode()] = val
+                    result[int(l2id)][name] = val
         except KeyError:
             result[int(l2id)] = {}
             missing_l2ids.append(l2id)
@@ -187,9 +194,20 @@ def handle_attributes(graph_id: str, is_binary=False):
     if not update_cache or len(missing_l2ids) == 0:
         return result
     try:
-        _trigger_cache_update(missing_l2ids, graph_id, cache_client.table_id)
+        # kvdbclient's Client stores the table id privately and exposes no public property,
+        # so `.table_id` raised AttributeError here while evaluating the argument -- before
+        # _trigger_cache_update was ever entered. Silently, because of the handler below: the
+        # endpoint still returned 200 with the missing ids simply absent, so callers saw
+        # incomplete data and no recompute was ever queued.
+        _trigger_cache_update(missing_l2ids, graph_id, cache_client._table_id)
     except Exception as e:
-        current_app.logger.error(str(e))
+        # exc_info so the next failure here shows a traceback. str(e) alone is what made an
+        # AttributeError read like an idle queue for days.
+        current_app.logger.error(
+            f"Failed to trigger l2cache update for {len(missing_l2ids)} l2 ids "
+            f"on {graph_id}: {e}",
+            exc_info=True,
+        )
     return result
 
 
