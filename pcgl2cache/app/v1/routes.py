@@ -7,6 +7,7 @@ from middle_auth_client import auth_required
 from middle_auth_client import auth_requires_permission
 
 from ...app import common
+from ...app.limiter import limit_by_category
 from ..utils import toboolean
 from ..utils import jsonify_with_kwargs
 from ...utils import read_l2cache_config
@@ -81,12 +82,15 @@ def unhandled_exception(e):
 
 
 @bp.route("/attribute_metadata", methods=["GET"])
+# Unauthenticated, so the limiter keys on the client address here (see user_key).
+@limit_by_category("metadata", endpoint="attribute_metadata")
 def attr_metadata():
     return jsonify_with_kwargs(common.handle_attr_metadata())
 
 
 @bp.route("/table/<table_id>/attributes", methods=["POST"])
 @auth_requires_permission("view")
+@limit_by_category("attributes", endpoint="attributes")
 @remap_public
 def attributes(table_id):
     int64_as_str = request.args.get("int64_as_str", default=False, type=toboolean)
