@@ -14,6 +14,7 @@ from flask_cors import CORS
 from rq import Queue
 
 from . import config
+from . import limiter
 from .common import bp as l2cache_bp
 from .v1.routes import bp as l2cache_api_v1
 
@@ -60,6 +61,9 @@ def create_app(test_config=None):
     CORS(app, expose_headers="WWW-Authenticate")
 
     configure_app(app)
+    # Before the blueprints: flask_limiter must be attached to the app while the
+    # decorated view functions are still being registered.
+    limiter.init_app(app)
     app.register_blueprint(l2cache_bp)
     app.register_blueprint(l2cache_api_v1)
     if test_config is not None:
