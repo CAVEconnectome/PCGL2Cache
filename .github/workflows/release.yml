@@ -22,32 +22,70 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Checkout cave-helm-charts repo
+        uses: actions/checkout@v4
+        with:
+          repository: CAVEconnectome/cave-helm-charts
+          token: ${{ secrets.HELM_CHART_UPDATE_TOKEN }}
+          path: helm-charts
+      - name: Get tags
+        run: git fetch --tags origin
       - name: Configure git for github-actions[bot]
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Bump version in pcgl2cache/_version.py
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bumpversion
+        run: pip install bumpversion
+      - name: Determine bumpversion base version
+        id: base-version
+        run: |
+          code_version="$(sed -nE 's/^current_version[[:space:]]*=[[:space:]]*([^[:space:]]+).*$/\1/p' .bumpversion.cfg)"
+          chart_version="$(sed -nE 's/^version:[[:space:]]*"?([^"[:space:]]+)"?.*$/\1/p' helm-charts/charts/pcgl2cache/Chart.yaml | head -n 1)"
+          code_base_version="${code_version%%-*}"
+          chart_base_version="${chart_version%%-*}"
+
+          if [[ ! "$code_base_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid code version: $code_version" >&2
+            exit 1
+          fi
+          if [[ ! "$chart_base_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid chart version: $chart_version" >&2
+            exit 1
+          fi
+
+          base_version="$(printf '%s\n' "$code_base_version" "$chart_base_version" | sort -V | tail -n 1)"
+          echo "Code version: $code_version (base: $code_base_version)"
+          echo "Chart version: $chart_version (base: $chart_base_version)"
+          echo "Bump base version: $base_version"
+          echo "CODE_VERSION=$code_version" >> "$GITHUB_OUTPUT"
+          echo "BASE_VERSION=$base_version" >> "$GITHUB_OUTPUT"
+      - name: Bump version with bumpversion
+        run: |
+          if [[ "${{ steps.base-version.outputs.CODE_VERSION }}" != "${{ steps.base-version.outputs.BASE_VERSION }}" ]]; then
+            bumpversion \
+              --current-version "${{ steps.base-version.outputs.CODE_VERSION }}" \
+              --new-version "${{ steps.base-version.outputs.BASE_VERSION }}" \
+              --no-tag \
+              patch
+          fi
+          bumpversion \
+            --current-version "${{ steps.base-version.outputs.BASE_VERSION }}" \
+            ${{ inputs.part }}
+      - name: Commit and push with tags
+        if: ${{ github.event.inputs.dry-run == 'false' }}
+        run: git push --follow-tags
+      - name: Get version
         id: get-version
         run: |
-          cur=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' pcgl2cache/_version.py)
-          IFS=. read -r major minor patch <<< "$cur"
-          case "${{ github.event.inputs.part }}" in
-            major) major=$((major + 1)); minor=0; patch=0 ;;
-            minor) minor=$((minor + 1)); patch=0 ;;
-            patch) patch=$((patch + 1)) ;;
-          esac
-          version="$major.$minor.$patch"
-          sed -i "s/^__version__ = .*/__version__ = \"$version\"/" pcgl2cache/_version.py
-          echo "VERSION=$version" >> $GITHUB_OUTPUT
-      - name: Commit the bump and push the tag
-        if: ${{ github.event.inputs.dry-run == 'false' }}
-        run: |
-          git add pcgl2cache/_version.py
-          git commit -m "release v${{ steps.get-version.outputs.VERSION }}"
-          git tag "v${{ steps.get-version.outputs.VERSION }}"
-          git push origin HEAD
-          git push origin "v${{ steps.get-version.outputs.VERSION }}"
+          version="$(git describe --tags)"
+          version="${version:1}"
+          echo "VERSION=$version" >> "$GITHUB_OUTPUT"
       - name: Create GitHub Release
         if: ${{ github.event.inputs.dry-run == 'false' }}
         uses: softprops/action-gh-release@v2
