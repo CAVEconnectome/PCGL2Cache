@@ -129,13 +129,13 @@ with role-specific entrypoints supplied by your deployment manifest.
 ## Release
 
 Versioned like PyChunkedGraph: a committed `pcgl2cache/_version.py` literal, bumped by a one-click
-workflow — no manual edit or `bumpversion`.
+workflow using `bumpversion`.
 
 - **Release:** Actions → **publish release** → **Run workflow** → choose `part`
   (`major`/`minor`/`patch`), or `gh workflow run release.yml -f part=patch`. It bumps `_version.py`,
   commits, tags `vX.Y.Z`, and creates a GitHub Release; the existing Cloud Build trigger builds the
   image from the tag.
-- **Preview:** `dry-run=true` prints the next version without committing or tagging.
+- **Preview:** `dry-run=true` prints the next version without pushing commits or tags.
 
 ## License
 
