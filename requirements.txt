@@ -16,3 +16,6 @@ cave-pipeline[distribution]>=0.0.3,<0.1
 edt
 pyyaml
 messagingclient
+# Per-user rate limiting; [redis] pulls the shared-storage backend, which is
+# required for the limit to mean anything across replicas (see app/limiter.py).
+flask-limiter[redis]
