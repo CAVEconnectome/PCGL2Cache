@@ -2,3 +2,7 @@ pylint
 black
 pyopenssl
 jupyter
+pre-commit
+pytest
+pytest-cov
+psutil

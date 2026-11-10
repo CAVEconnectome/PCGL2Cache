@@ -4,7 +4,6 @@ from os import environ
 
 from .redis import REDIS_URL
 
-
 _cluster_ingest_config_fields = (
     "REDIS_URL",
     "QUEUE_NAME",

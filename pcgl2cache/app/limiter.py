@@ -60,7 +60,9 @@ def get_service_account_rate_limit(category, endpoint=None):
     otherwise exhaust one bucket no matter how many replicas they run.
     """
     if endpoint:
-        overrides = _load_categories("LIMITER_SERVICE_ACCOUNT_OVERRIDES").get(endpoint) or {}
+        overrides = (
+            _load_categories("LIMITER_SERVICE_ACCOUNT_OVERRIDES").get(endpoint) or {}
+        )
         if isinstance(overrides, dict) and category in overrides:
             return overrides[category]
     return _load_categories("LIMITER_SERVICE_ACCOUNT_CATEGORIES").get(category)
@@ -136,7 +138,9 @@ def init_app(app):
     storage = os.environ.get("LIMITER_URI", "memory://")
     categories = _load_categories("LIMITER_CATEGORIES")
     if not categories:
-        app.logger.info("rate limiting: no LIMITER_CATEGORIES set, limits are not enforced")
+        app.logger.info(
+            "rate limiting: no LIMITER_CATEGORIES set, limits are not enforced"
+        )
     elif storage.startswith("memory://"):
         # Worth shouting about: the limits look configured and are per process, so
         # the real fleet-wide ceiling is this number times replicas times workers.
