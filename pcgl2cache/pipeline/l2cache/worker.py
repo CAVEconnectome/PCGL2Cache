@@ -6,9 +6,11 @@ table's meta (recorded once at setup), so the whole fleet shares it; writes are 
 (by l2 id), so no per-chunk lock.
 """
 
+import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -23,13 +25,26 @@ logger = logging.getLogger(__name__)
 _TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+def open_volume() -> CloudVolume:
+    """The segmentation volume, opened from the info setup saved when the Job mounts one.
+
+    A whole fleet asking the graphene server for `/info` overwhelms its lookups, and the
+    saved copy is all a volume needs: chunk reads go to the watershed bucket."""
+    saved = os.environ.get("L2CACHE_CV_INFO")
+    return CloudVolume(
+        os.environ["L2CACHE_CV_PATH"],
+        info=json.loads(Path(saved).read_text()) if saved else None,
+        bounded=False,
+        fill_missing=True,
+        progress=False,
+    )
+
+
 def context_factory(env):
     """Per-pod state, built once: segmentation volume, cache + graph clients, the shared
     snapshot timestamp from the cache meta, and the L2 chunk grid."""
     config = get_default_client_info().CONFIG
-    cv = CloudVolume(
-        os.environ["L2CACHE_CV_PATH"], bounded=False, fill_missing=True, progress=False
-    )
+    cv = open_volume()
     cache_client = BigTableClient(os.environ["L2CACHE_TABLE_ID"], config=config)
     ts = cache_client.read_table_meta()["timestamp"]  # one snapshot for the whole fleet
     return SimpleNamespace(
