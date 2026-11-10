@@ -7,7 +7,7 @@ version = {}
 with open("pcgl2cache/_version.py") as fh:
     exec(fh.read(), version)
 
-with open('requirements.txt', 'r') as f:
+with open("requirements.txt", "r") as f:
     required = f.read().splitlines()
 
 dependency_links = []
@@ -39,5 +39,5 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
-    ]
+    ],
 )

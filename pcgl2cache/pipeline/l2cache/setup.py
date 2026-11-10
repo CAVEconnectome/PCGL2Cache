@@ -29,13 +29,17 @@ def create_cache_table(table_id: str, graph_id: str, cv_path: str) -> None:
         pass
 
 
-def add_service_mapping(table_name: str, server_host: str, dataset: str, service: str) -> None:
+def add_service_mapping(
+    table_name: str, server_host: str, dataset: str, service: str
+) -> None:
     """Register the graph with CAVE auth (sticky_auth) so its graphene CV is readable —
     without it the CV crashes with an auth error, notably right after ingest."""
     token = str(cave_credentials()["token"])
     mapping = f"api/v1/service/{service}/table/{table_name}/dataset/{dataset}"
     url = f"{server_host}/sticky_auth/{mapping}"
-    response = requests.post(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
+    response = requests.post(
+        url, headers={"Authorization": f"Bearer {token}"}, timeout=15
+    )
     logger.info(f"cave service mapping {response.status_code}: {url}")
     response.raise_for_status()  # fail setup if unregistered — else the CV auth-crashes
 

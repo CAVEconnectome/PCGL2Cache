@@ -1,6 +1,7 @@
 """
 cli for redis jobs
 """
+
 import os
 import sys
 
@@ -20,7 +21,6 @@ from flask.cli import AppGroup
 from .redis import REDIS_HOST
 from .redis import REDIS_PORT
 from .redis import REDIS_PASSWORD
-
 
 rq_cli = AppGroup("rq")
 connection = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, password=REDIS_PASSWORD)

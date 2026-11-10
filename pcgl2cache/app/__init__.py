@@ -54,7 +54,11 @@ def get_instance_folder_path():
 
 
 def create_app(test_config=None):
-    app = Flask(__name__,instance_path=get_instance_folder_path(), instance_relative_config=True)
+    app = Flask(
+        __name__,
+        instance_path=get_instance_folder_path(),
+        instance_relative_config=True,
+    )
     # app.json_encoder was removed in Flask 2.3; without the provider numpy
     # arrays raise "Object of type ndarray is not JSON serializable"
     app.json = CustomJSONProvider(app)
